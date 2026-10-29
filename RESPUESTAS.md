@@ -61,11 +61,11 @@ Presupuesto: [ ] min  Métrica DORA: [ ]
 - Evidencia: en el run https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40956817656 el bloqueo de deploy solo duró 23 s (21:20:51 - 21:21:14), pero las pruebas contra la función siguieron hasta 21:33:46 (load fue de 21:21:28 a 21:33:46). Fueron como 12 minutos y medio en los que otro run podía cambiar la función. Con el cambio todo el run se ejecuta uno a la vez.
 
 ## Parte 2 · Implementación
-- Link al run en verde en main:
-- Link al pull request:
-- Defecto de la aplicación introducido (archivo y descripción):
-- Job que debería detenerlo:
-- Link al run fallido:
+- Link al run en verde en main: https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40959282655
+- Link al pull request: https://github.com/ezeAst/INF384-lab4-dev/pull/1
+- Defecto de la aplicación introducido (archivo y descripción): en src/util.js, en validarMonto cambié `monto <= 0` por `monto < 0`. Con eso se acepta un monto de 0, entonces POST /transferir con monto 0 responde 200 y registra un movimiento vacío, cuando según las reglas debería devolver 400.
+- Job que debería detenerlo: unit (test/unit/util.test.js tiene el test "validarMonto rechaza cero" y wallet.test.js "transferir con monto invalido es 400")
+- Link al run fallido: https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40961461439
 
 ## Parte 3 · Decisión bajo restricción
 Link al run medido:
