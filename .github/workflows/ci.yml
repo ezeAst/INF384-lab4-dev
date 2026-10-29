@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-lambda-${{ github.repository }}
+  cancel-in-progress: false
+
 env:
   APP: monedero-andino
   AWS_REGION: us-east-1
