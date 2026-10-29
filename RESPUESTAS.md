@@ -90,3 +90,4 @@ Decisión sobre sast (se queda / se mueve a otra etapa o evento / informativo) y
 
 ## Declaración de uso de IA
 Herramientas usadas y para qué:
+- Claude Code (Claude): lo usé como apoyo para revisar ci.yml y los tests buscando los defectos, aplicar los cambios en commits separados, sacar los tiempos de los jobs de los runs y redactar las respuestas. Las decisiones (qué defecto introducir, el SLO, qué recortar para entrar en el presupuesto y qué hacer con sast) las revisé y validé yo con los datos de los runs.
