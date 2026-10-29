@@ -259,6 +259,7 @@ jobs:
       - name: Smoke
         env:
           BASE_URL: ${{ steps.url.outputs.url }}
+          EXPECTED_COMMIT: ${{ github.sha }}
         run: test/smoke/smoke.sh
 
   e2e:
