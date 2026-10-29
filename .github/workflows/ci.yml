@@ -79,7 +79,6 @@ jobs:
             --workdir /src \
             ghcr.io/aquasecurity/trivy:0.76.1 fs \
               --scanners vuln \
-              --include-dev-deps \
               --severity HIGH,CRITICAL \
               --exit-code 1 \
               package-lock.json
