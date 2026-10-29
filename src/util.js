@@ -6,7 +6,7 @@ function validarMonto(monto) {
   if (typeof monto !== 'number' || !Number.isFinite(monto)) {
     return 'monto debe ser numerico';
   }
-  if (monto <= 0) {
+  if (monto < 0) {
     return 'monto debe ser mayor que cero';
   }
   if (Math.abs(Math.round(monto * 100) - monto * 100) > 1e-6) {
