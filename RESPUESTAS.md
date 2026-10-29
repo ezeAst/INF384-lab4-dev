@@ -14,56 +14,34 @@ Presupuesto: 13 min  Métrica DORA: time to restore
 - Job y etapa: smoke, post-deploy (step Smoke)
 - Problema que causa en el pipeline: smoke.sh solo revisa que /version devuelva el commit correcto si existe la variable EXPECTED_COMMIT, pero en el ci.yml no se le pasaba. Entonces smoke solo veía que /salud y /saldo/ana respondan, sin importar qué versión estaba desplegada (podía ser la anterior o la de otro PR, ya que todos usan la misma función).
 - Link al commit: https://github.com/ezeAst/INF384-lab4-dev/commit/a56411731415b9ba25e7eaf107ac5ba9e3ce3156
-- Corrección: ajustar configuración (agregué `EXPECTED_COMMIT: ${{ github.sha }}` al env del step)
-- Evidencia: corrí en mi máquina:
-  ```
-  $ grep -n EXPECTED_COMMIT test/smoke/smoke.sh
-  20:if [ -n "${EXPECTED_COMMIT:-}" ]; then
-  23:    if [ "$commit" = "$EXPECTED_COMMIT" ]; then
-  ```
-  La validación está dentro de un if, y sin la variable nunca entra. En el run https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40956817656 smoke salió en verde (21:20:52 - 21:21:24) aunque deploy todavía no había terminado (21:21:14), así que pasó sin comprobar el commit.
+- Corrección: ajustar configuración (agregué EXPECTED_COMMIT: ${{ github.sha }} al env del step)
+- Evidencia: corrí grep -n EXPECTED_COMMIT test/smoke/smoke.sh en mi máquina y salió que la variable se usa en la línea 20 (if [ -n "${EXPECTED_COMMIT:-}" ]; then) y en la 23 (if [ "$commit" = "$EXPECTED_COMMIT" ]; then). La validación está dentro de un if, y sin la variable nunca entra. En el run https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40956817656 smoke salió en verde (21:20:52 - 21:21:24) aunque deploy todavía no había terminado (21:21:14), así que pasó sin comprobar el commit.
 
 ### Defecto 3
 - Job y etapa: sca, pre-build
-- Problema que causa en el pipeline: con `--include-dev-deps` Trivy también revisa las dependencias de desarrollo (playwright, c8, esbuild y todo lo que traen), pero esas no llegan a la imagen porque el Dockerfile hace `npm prune --omit=dev`. Si sale una vulnerabilidad HIGH en alguna de esas herramientas, el pipeline se cae por algo que no está en producción.
+- Problema que causa en el pipeline: con --include-dev-deps Trivy también revisa las dependencias de desarrollo (playwright, c8, esbuild y todo lo que traen), pero esas no llegan a la imagen porque el Dockerfile hace npm prune --omit=dev. Si sale una vulnerabilidad HIGH en alguna de esas herramientas, el pipeline se cae por algo que no está en producción.
 - Link al commit: https://github.com/ezeAst/INF384-lab4-dev/commit/b8e4b5f78431054ce96ca6d7120345bdaeabb377
-- Corrección: ajustar configuración (saqué la línea `--include-dev-deps`)
-- Evidencia: en mi máquina:
-  ```
-  $ grep -n npm Dockerfile
-  5:RUN npm ci
-  8:RUN npm run build && npm prune --omit=dev
-  $ npm ls --all --parseable | tail -n +2 | wc -l
-  97
-  $ npm ls --all --omit=dev --parseable | tail -n +2 | wc -l
-  38
-  ```
-  sca revisaba 97 paquetes cuando a la imagen solo van 38, los otros 59 son de desarrollo.
+- Corrección: ajustar configuración (saqué la línea --include-dev-deps)
+- Evidencia: en mi máquina, grep -n npm Dockerfile muestra en la línea 8 "RUN npm run build && npm prune --omit=dev", o sea que la imagen se queda sin las dependencias de desarrollo. Luego conté los paquetes del lock: npm ls --all --parseable dio 97 y npm ls --all --omit=dev --parseable dio 38. sca revisaba 97 paquetes cuando a la imagen solo van 38, los otros 59 son de desarrollo.
 
 ### Defecto 4
 - Job y etapa: load (test/load/transferir.js), post-deploy
-- Problema que causa en el pipeline: el script acepta 400 como respuesta válida (`expectedStatuses(200, 400)` y el check 'transferir 200 o 400'). Pero k6 siempre manda usuarios que existen, distintos y con monto 1, entonces lo correcto siempre es 200. Si /transferir empezara a responder 400 a transferencias válidas, load no lo marcaría como error y pasaría igual.
+- Problema que causa en el pipeline: el script acepta 400 como respuesta válida (expectedStatuses(200, 400) y el check 'transferir 200 o 400'). Pero k6 siempre manda usuarios que existen, distintos y con monto 1, entonces lo correcto siempre es 200. Si /transferir empezara a responder 400 a transferencias válidas, load no lo marcaría como error y pasaría igual.
 - Link al commit: https://github.com/ezeAst/INF384-lab4-dev/commit/48b9c9ea67e1895d2c6201635cc29625b0e96c09
 - Corrección: modificar tests (ahora solo acepta 200 y el check se llama 'transferir 200')
-- Evidencia: llamé al handler en local con distintos casos:
-  ```
-  {"origen":"ana","destino":"beto","monto":1} -> 200 {"id":1,"origen":"ana","destino":"beto","monto":1,"saldoOrigen":999}
-  {"origen":"ana","destino":"beto","monto":99999999} -> 400 {"error":"saldo insuficiente"}
-  {"origen":"ana","destino":"zzz","monto":1} -> 400 {"error":"usuario inexistente"}
-  ```
-  Un request como el de k6 da 200; el 400 solo sale cuando algo está mal, y antes el script lo contaba como OK.
+- Evidencia: llamé al handler en local con tres casos. De ana a beto con monto 1 respondió 200 con saldoOrigen 999. De ana a beto con monto 99999999 respondió 400 "saldo insuficiente". De ana a zzz con monto 1 respondió 400 "usuario inexistente". Un request como el de k6 da 200; el 400 solo sale cuando algo está mal, y antes el script lo contaba como OK.
 
 ### Defecto 5
 - Job y etapa: es a nivel de todo el workflow (ci.yml), afecta a smoke, e2e y load que están en post-deploy
 - Problema que causa en el pipeline: solo deploy tenía concurrency. Como cada PR y cada push a main despliegan en la misma Lambda, si hay dos runs a la vez uno puede redesplegar mientras el otro todavía está corriendo e2e o load, y el primero termina probando el código del segundo.
 - Link al commit: https://github.com/ezeAst/INF384-lab4-dev/commit/afc20b928626ca0f72a97d83d2d462f48194246f
-- Corrección: ajustar configuración (concurrency con group `ci-lambda-${{ github.repository }}` y cancel-in-progress: false a nivel de workflow)
+- Corrección: ajustar configuración (concurrency con group ci-lambda-${{ github.repository }} y cancel-in-progress: false a nivel de workflow)
 - Evidencia: en el run https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40956817656 el bloqueo de deploy solo duró 23 s (21:20:51 - 21:21:14), pero las pruebas contra la función siguieron hasta 21:33:46 (load fue de 21:21:28 a 21:33:46). Fueron como 12 minutos y medio en los que otro run podía cambiar la función. Con el cambio todo el run se ejecuta uno a la vez.
 
 ## Parte 2 · Implementación
 - Link al run en verde en main: https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40959282655
 - Link al pull request: https://github.com/ezeAst/INF384-lab4-dev/pull/1
-- Defecto de la aplicación introducido (archivo y descripción): en src/util.js, en validarMonto cambié `monto <= 0` por `monto < 0`. Con eso se acepta un monto de 0, entonces POST /transferir con monto 0 responde 200 y registra un movimiento vacío, cuando según las reglas debería devolver 400.
+- Defecto de la aplicación introducido (archivo y descripción): en src/util.js, en validarMonto cambié monto <= 0 por monto < 0. Con eso se acepta un monto de 0, entonces POST /transferir con monto 0 responde 200 y registra un movimiento vacío, cuando según las reglas debería devolver 400.
 - Job que debería detenerlo: unit (test/unit/util.test.js tiene el test "validarMonto rechaza cero" y wallet.test.js "transferir con monto invalido es 400")
 - Link al run fallido: https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40961461439
 
@@ -94,7 +72,7 @@ Resultado de load en ese run:
 
 Conclusión sobre el comportamiento bajo carga: con 30 usuarios por 12 minutos Monedero Andino aguanta sin problema. No falló ningún request y la latencia es bien estable: la mediana es 78 ms y el p95 84.56 ms, casi lo mismo. El máximo de 240 ms es un caso aislado, probablemente un cold start de alguna instancia nueva de Lambda. No se ve que la latencia vaya subiendo con el tiempo, así que con esta carga no hay saturación. El SLO_P95 que estaba (500 ms) quedaba muy lejos de lo medido y casi no servía para detectar una degradación.
 
-SLO propuesto (percentil, valor, ventana) y justificación: p95 de la latencia de los requests (transferir y saldo) menor a 150 ms, medido en cada ejecución de load (ventana = los 5 min del test, 4 de carga constante) y en producción en una ventana móvil de 28 días. El p95 medido fue 84.56 ms, así que 150 ms deja ~65 ms de margen (casi el doble) para la variación normal entre runs y los cold starts, y load no se cae por ruido. Al mismo tiempo, si un cambio hace que la API se vuelva casi 2 veces más lenta, load lo detiene. Lo configuré en ci.yml como `SLO_P95: 150` ({R}/commit/620234b9e94e29373a8756c719d0cd2967b5f454).
+SLO propuesto (percentil, valor, ventana) y justificación: p95 de la latencia de los requests (transferir y saldo) menor a 150 ms, medido en cada ejecución de load (ventana = los 5 min del test, 4 de carga constante) y en producción en una ventana móvil de 28 días. El p95 medido fue 84.56 ms, así que 150 ms deja ~65 ms de margen (casi el doble) para la variación normal entre runs y los cold starts, y load no se cae por ruido. Al mismo tiempo, si un cambio hace que la API se vuelva casi 2 veces más lenta, load lo detiene. Lo configuré en ci.yml como SLO_P95: 150 ({R}/commit/620234b9e94e29373a8756c719d0cd2967b5f454).
 
 SLA propuesto y diferencia con el SLO: el 99% de las transferencias del mes responde en menos de 500 ms y la API está disponible el 99.5% del mes; si no se cumple, se compensa al cliente (por ejemplo, con un crédito). El SLO es la meta interna del equipo y el SLA es lo que se le promete al cliente con consecuencias si no se cumple. Por eso el SLA es más flojo que el SLO (500 ms vs 150 ms, p99 mensual vs p95): si el SLO se rompe, el equipo tiene tiempo para reaccionar antes de llegar a incumplir el SLA y tener que pagar.
 
