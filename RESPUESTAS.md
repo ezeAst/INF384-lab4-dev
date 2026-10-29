@@ -1,6 +1,6 @@
 # Respuestas · Laboratorio 4
 Alumno: 20213298
-Presupuesto: [ ] min  Métrica DORA: [ ]
+Presupuesto: 13 min  Métrica DORA: time to restore
 
 ## Parte 1 · Diagnóstico
 ### Defecto 1
@@ -68,20 +68,20 @@ Presupuesto: [ ] min  Métrica DORA: [ ]
 - Link al run fallido: https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40961461439
 
 ## Parte 3 · Decisión bajo restricción
-Link al run medido:
+Link al run medido: https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40959282655
 
 | Job | Duración (min:seg) |
 |---|---|
-| unit | |
-| integration | |
-| sast | |
-| sca | |
-| build-push | |
-| deploy | |
-| smoke | |
-| e2e | |
-| load | |
-| **Total** | |
+| unit | 0:12 |
+| integration | 0:10 |
+| sast | 0:26 |
+| sca | 0:22 |
+| build-push | 0:45 |
+| deploy | 0:19 |
+| smoke | 0:11 |
+| e2e | 1:04 |
+| load | 12:14 |
+| **Total** | 15:43 |
 
 Resultado de load en ese run:
 | Métrica | Valor |
