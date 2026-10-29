@@ -79,9 +79,9 @@ SLA propuesto y diferencia con el SLO: 99% de las transferencias del mes en meno
 Cambios para cumplir el presupuesto:
 | Cambio | Job | Minutos recuperados |
 |---|---|---|
-| Stages de transferir.js de 1m/10m/1m a 30s/4m/30s (https://github.com/ezeAst/INF384-lab4-dev/commit/847bdfebff0c857ab26c0ab164839fc0faa1e044) | load | ~7 min |
+| Stages de transferir.js de 1m/10m/1m a 30s/4m/30s (https://github.com/ezeAst/INF384-lab4-dev/commit/847bdfebff0c857ab26c0ab164839fc0faa1e044) | load | 7:05 (12:14 a 5:09) |
 
-Total resultante: [ ] min
+Total resultante: 8:17 min (load bajó de 12:14 a 5:09, se recuperaron 7:05)
 Link al run en main con los cambios: https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40962280165
 
 Riesgo aceptado (defecto de la aplicación concreto y efecto en la métrica DORA asignada): con 4 min de carga en vez de 10 se puede pasar un defecto que se degrada con el tiempo. Por ejemplo, si transferir en src/wallet.js calculara el saldo sumando toda la tabla movimientos en vez de leer la columna saldo, cada transferencia sería más lenta a medida que crece la tabla. En 4 minutos el p95 seguiría bajo 150 ms y el problema aparecería recién en producción. Time to restore baja: el pipeline pasa de ~16 a ~9 min, así que el fix o el revert de ese incidente llega unos 7 minutos antes.
