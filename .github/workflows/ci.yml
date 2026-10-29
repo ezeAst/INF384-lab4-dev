@@ -230,7 +230,7 @@ jobs:
             --output text
 
   smoke:
-    needs: build-push
+    needs: deploy
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
