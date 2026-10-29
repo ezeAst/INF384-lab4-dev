@@ -86,28 +86,29 @@ Link al run medido: https://github.com/ezeAst/INF384-lab4-dev/actions/runs/40959
 Resultado de load en ese run:
 | Métrica | Valor |
 |---|---|
-| p90 | |
-| p95 | |
-| Máximo | |
-| Tasa de error | |
-| Requests por segundo | |
+| p90 | 82.67 ms |
+| p95 | 84.56 ms |
+| Máximo | 240.41 ms |
+| Tasa de error | 0.00% (0 de 34264) |
+| Requests por segundo | 47.57 req/s |
 
-Conclusión sobre el comportamiento bajo carga:
+Conclusión sobre el comportamiento bajo carga: con 30 usuarios por 12 minutos Monedero Andino aguanta sin problema. No falló ningún request y la latencia es bien estable: la mediana es 78 ms y el p95 84.56 ms, casi lo mismo. El máximo de 240 ms es un caso aislado, probablemente un cold start de alguna instancia nueva de Lambda. No se ve que la latencia vaya subiendo con el tiempo, así que con esta carga no hay saturación. El SLO_P95 que estaba (500 ms) quedaba muy lejos de lo medido y casi no servía para detectar una degradación.
 
-SLO propuesto (percentil, valor, ventana) y justificación:
+SLO propuesto (percentil, valor, ventana) y justificación: p95 de la latencia de los requests (transferir y saldo) menor a 150 ms, medido en cada ejecución de load (ventana = los 5 min del test, 4 de carga constante) y en producción en una ventana móvil de 28 días. El p95 medido fue 84.56 ms, así que 150 ms deja ~65 ms de margen (casi el doble) para la variación normal entre runs y los cold starts, y load no se cae por ruido. Al mismo tiempo, si un cambio hace que la API se vuelva casi 2 veces más lenta, load lo detiene. Lo configuré en ci.yml como `SLO_P95: 150` ({R}/commit/620234b9e94e29373a8756c719d0cd2967b5f454).
 
-SLA propuesto y diferencia con el SLO:
+SLA propuesto y diferencia con el SLO: el 99% de las transferencias del mes responde en menos de 500 ms y la API está disponible el 99.5% del mes; si no se cumple, se compensa al cliente (por ejemplo, con un crédito). El SLO es la meta interna del equipo y el SLA es lo que se le promete al cliente con consecuencias si no se cumple. Por eso el SLA es más flojo que el SLO (500 ms vs 150 ms, p99 mensual vs p95): si el SLO se rompe, el equipo tiene tiempo para reaccionar antes de llegar a incumplir el SLA y tener que pagar.
 
 Cambios para cumplir el presupuesto:
 | Cambio | Job | Minutos recuperados |
 |---|---|---|
+| Stages de test/load/transferir.js de 1m/10m/1m a 30s/4m/30s (4 min de carga constante, el mínimo permitido) ({R}/commit/847bdfebff0c857ab26c0ab164839fc0faa1e044) | load | ~7 min (de 12:14 a ~5:14) |
 
 Total resultante: [ ] min
 Link al run en main con los cambios:
 
-Riesgo aceptado (defecto de la aplicación concreto y efecto en la métrica DORA asignada):
+Riesgo aceptado (defecto de la aplicación concreto y efecto en la métrica DORA asignada): con load corriendo 4 minutos en vez de 10 se mandan como 11 mil requests en vez de 34 mil. Un defecto que solo empeora con el tiempo se nos puede pasar. Por ejemplo, si en src/wallet.js transferir calcula el saldo del origen sumando todos sus movimientos (leyendo la tabla movimientos completa) en vez de leer la columna saldo, cada transferencia se vuelve un poco más lenta a medida que crece la tabla: en 4 minutos el p95 todavía queda bajo 150 ms, pero después de más tiempo en producción lo pasaría. Ese defecto llegaría a producción y se detectaría tarde, por el monitoreo o por los clientes. Para time to restore el efecto es que baja: el pipeline pasa de ~16 a ~9 min, entonces el revert o el fix de ese incidente (o de cualquier otro) llega a producción unos 7 minutos antes. El costo de este riesgo se ve más en change failure rate (pasan más cambios malos), pero la métrica que me tocó mejora.
 
-Decisión sobre sast (se queda / se mueve a otra etapa o evento / informativo) y razón:
+Decisión sobre sast (se queda / se mueve a otra etapa o evento / informativo) y razón: se queda en pre-build bloqueando. Cuesta 0:26 de los 13 min del presupuesto (3%) y corre en paralelo con unit, integration y sca, así que en tiempo real solo agrega ~4 s antes de build-push (el más lento del resto es sca con 0:22). Moverlo o pasarlo a informativo no ahorra presupuesto, porque el job sigue corriendo y sumando sus 26 s. Para time to restore casi no cambia nada (unos segundos más por fix), y evita que un fix hecho apurado durante un incidente meta una vulnerabilidad y genere otro incidente, lo que sí subiría el tiempo de restauración.
 
 ## Declaración de uso de IA
 Herramientas usadas y para qué:
